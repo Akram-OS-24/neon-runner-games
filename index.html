@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"="width=device-width, initial-scale=1.0">
+    <title>Neon Runner - Endless Adventure!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+        
+        canvas {
+            display: block;
+            background: transparent;
+        }
+        
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .game-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ffff;
+            font-size: 18px;
+            text-shadow: 0 0 10px #00ffff;
+            pointer-events: auto;
+        }
+        
+        .score-display {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .speed-display {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+        
+        .health-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #00ffff;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+            transition: width 0.3s ease;
+            border-radius: 8px;
+        }
+        
+        .power-ups {
+            position: absolute;
+            bottom: 80px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .power-up-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            border: 2px solid #00ffff;
+            transition: all 0.3s ease;
+        }
+        
+        .power-up-icon.active {
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px #00ffff;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid #00ffff;
+            border-radius: 50%;
+            color: #00ffff;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        
+        .control-btn:active, .control-btn:hover {
+            transform: scale(0.9);
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 3px solid #ff0080;
+            box-shadow: 0 0 30px rgba(255, 0, 128, 0.5);
+            display: none;
+            pointer-events: auto;
+        }
+        
+        .game-over h2 {
+            color: #ff0080;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+        
+        .final-stats {
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        
+        .restart-btn, .upgrade-btn {
+            background: linear-gradient(45deg, #ff0080, #00ffff);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .restart-btn:hover, .upgrade-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 0, 128, 0.5);
+        }
+        
+        .pause-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            border: 3px solid #00ffff;
+            display: none;
+            pointer-events: auto;
+        }
+        
+        .upgrades-panel {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+        
+        .upgrade-item {
+            background: rgba(255, 255, 255, 0.1);
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .ad-banner {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px dashed #00ffff;
+            color: #00ffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                bottom: 80px;
+            }
+            
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="game-ui">
+                <div class="score-display">Score: <span id="score">0</span></div>
+                <div>Distance: <span id="distance">0</span>m</div>
+                <div class="speed-display">Speed: <span id="speed">5</span></div>
+                <div>Coins: <span id="coins">0</span></div>
+            </div>
+            
+            <div class="health-bar">
+                <div class="health-fill" id="healthFill"></div>
+            </div>
+            
+            <div class="power-ups" id="powerUps">
+                <div class="power-up-icon" id="shield">🛡️</div>
+                <div class="power-up-icon" id="speed">⚡</div>
+                <div class="power-up-icon" id="magnet">🧲</div>
+                <div class="power-up-icon" id="jump">🚀</div>
+            </div>
+            
+            <div class="controls">
+                <div class="control-btn" id="leftBtn">←</div>
+                <div class="control-btn" id="jumpBtn">↑</div>
+                <div class="control-btn" id="rightBtn">→</div>
+                <div class="control-btn" id="pauseBtn">⏸️</div>
+            </div>
+        </div>
+        
+        <div class="game-over" id="gameOver">
+            <h2>Game Over!</h2>
+            <div class="final-stats">
+                <div>Final Score: <span id="finalScore">0</span></div>
+                <div>Distance: <span id="finalDistance">0</span>m</div>
+                <div>Coins Collected: <span id="finalCoins">0</span></div>
+                <div>Best Score: <span id="bestScore">0</span></div>
+            </div>
+            <button class="restart-btn" onclick="restartGame()">Play Again</button>
+            <button class="upgrade-btn" onclick="showUpgrades()">Upgrades</button>
+            <button class="restart-btn" onclick="shareScore()">Share</button>
+        </div>
+        
+        <div class="pause-menu" id="pauseMenu">
+            <h3>Game Paused</h3>
+            <button class="restart-btn" onclick="resumeGame()">Resume</button>
+            <button class="upgrade-btn" onclick="showUpgrades()">Upgrades</button>
+            <button class="restart-btn" onclick="restartGame()">Restart</button>
+        </div>
+        
+        <div class="ad-banner">
+            [Mobile Banner Ad - 320x50]
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Responsive canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        let game = {
+            player: {
+                x: 100,
+                y: canvas.height - 150,
+                width: 40,
+                height: 40,
+                velocityY: 0,
+                onGround: false,
+                health: 100,
+                maxHealth: 100
+            },
+            camera: { x: 0 },
+            obstacles: [],
+            powerUps: [],
+            coins: [],
+            particles: [],
+            score: 0,
+            distance: 0,
+            speed: 5,
+            coinsCollected: 0,
+            totalCoins: parseInt(localStorage.getItem('neonRunnerCoins') || '0'),
+            bestScore: parseInt(localStorage.getItem('neonRunnerBest') || '0'),
+            gameRunning: true,
+            paused: false,
+            keys: {},
+            powerUpStates: {
+                shield: { active: false, duration: 0 },
+                speed: { active: false, duration: 0 },
+                magnet: { active: false, duration: 0 },
+                jump: { active: false, duration: 0 }
+            },
+            upgrades: {
+                health: parseInt(localStorage.getItem('upgradeHealth') || '0'),
+                speed: parseInt(localStorage.getItem('upgradeSpeed') || '0'),
+                jump: parseInt(localStorage.getItem('upgradeJump') || '0'),
+                magnet: parseInt(localStorage.getItem('upgradeMagnet') || '0')
+            }
+        };
+        
+        // Input handling
+        const controls = {
+            left: false,
+            right: false,
+            jump: false
+        };
+        
+        // Touch controls - Fixed for mobile and desktop
+        function addControlEvents(elementId, controlKey) {
+            const element = document.getElementById(elementId);
+            
+            // Touch events (mobile)
+            element.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                controls[controlKey] = true;
+            });
+            element.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                controls[controlKey] = false;
+            });
+            
+            // Mouse events (desktop)
+            element.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                controls[controlKey] = true;
+            });
+            element.addEventListener('mouseup', (e) => {
+                e.preventDefault();
+                controls[controlKey] = false;
+            });
+            element.addEventListener('mouseleave', (e) => {
+                e.preventDefault();
+                controls[controlKey] = false;
+            });
+        }
+        
+        // Apply to all control buttons
+        addControlEvents('leftBtn', 'left');
+        addControlEvents('rightBtn', 'right');
+        addControlEvents('jumpBtn', 'jump');
+        
+        document.getElementById('pauseBtn').addEventListener('click', togglePause);
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.code) {
+                case 'ArrowLeft':
+                case 'KeyA':
+                    controls.left = true;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    controls.right = true;
+                    break;
+                case 'ArrowUp':
+                case 'KeyW':
+                case 'Space':
+                    e.preventDefault();
+                    controls.jump = true;
+                    break;
+                case 'KeyP':
+                    togglePause();
+                    break;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            switch(e.code) {
+                case 'ArrowLeft':
+                case 'KeyA':
+                    controls.left = false;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    controls.right = false;
+                    break;
+                case 'ArrowUp':
+                case 'KeyW':
+                case 'Space':
+                    controls.jump = false;
+                    break;
+            }
+        });
+        
+        function createObstacle() {
+            const types = ['spike', 'block', 'laser'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            return {
+                x: game.camera.x + canvas.width + Math.random() * 200,
+                y: canvas.height - 100,
+                width: 40,
+                height: 40 + Math.random() * 40,
+                type: type,
+                color: type === 'spike' ? '#ff4444' : type === 'block' ? '#ff8800' : '#ff0080'
+            };
+        }
+        
+        function createPowerUp() {
+            const types = ['shield', 'speed', 'magnet', 'jump', 'health'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            return {
+                x: game.camera.x + canvas.width + Math.random() * 300,
+                y: canvas.height - 200 - Math.random() * 100,
+                width: 30,
+                height: 30,
+                type: type,
+                collected: false,
+                animation: 0
+            };
+        }
+        
+        function createCoin() {
+            return {
+                x: game.camera.x + canvas.width + Math.random() * 200,
+                y: canvas.height - 150 - Math.random() * 150,
+                width: 20,
+                height: 20,
+                collected: false,
+                animation: 0,
+                value: 1
+            };
+        }
+        
+        function createParticle(x, y, color) {
+            return {
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: Math.random() * -10 - 5,
+                life: 1.0,
+                color: color,
+                size: Math.random() * 8 + 2
+            };
+        }
+        
+        function updatePlayer() {
+            // Horizontal movement
+            if (controls.left && game.player.x > game.camera.x + 20) {
+                game.player.x -= 8;
+            }
+            if (controls.right && game.player.x < game.camera.x + canvas.width - game.player.width - 20) {
+                game.player.x += 8;
+            }
+            
+            // Jumping - improved responsiveness
+            if (controls.jump && game.player.onGround) {
+                const jumpPower = 22 + (game.upgrades.jump * 3);
+                game.player.velocityY = -jumpPower;
+                game.player.onGround = false;
+                
+                // Add jump particle effect
+                for (let i = 0; i < 5; i++) {
+                    game.particles.push(createParticle(
+                        game.player.x + game.player.width / 2,
+                        game.player.y + game.player.height,
+                        '#00ffff'
+                    ));
+                }
+            }
+            
+            // Gravity
+            game.player.velocityY += 1.2;
+            game.player.y += game.player.velocityY;
+            
+            // Ground collision
+            const groundLevel = canvas.height - 150;
+            if (game.player.y >= groundLevel) {
+                game.player.y = groundLevel;
+                game.player.velocityY = 0;
+                game.player.onGround = true;
+            } else {
+                game.player.onGround = false;
+            }
+            
+            // Camera follows player smoothly
+            const targetCameraX = game.player.x - 200;
+            game.camera.x += (targetCameraX - game.camera.x) * 0.1;
+            
+            // Auto-forward movement
+            const currentSpeed = game.speed + (game.powerUpStates.speed.active ? 3 : 0);
+            game.player.x += currentSpeed;
+            game.distance += currentSpeed / 10;
+            
+            // Increase speed over time
+            if (Math.floor(game.distance) % 100 === 0 && game.distance > 0) {
+                game.speed += 0.05;
+            }
+        }
+        
+        function updateObstacles() {
+            // Spawn obstacles
+            if (Math.random() < 0.01 + (game.speed / 1000)) {
+                game.obstacles.push(createObstacle());
+            }
+            
+            // Update obstacles
+            game.obstacles.forEach((obstacle, index) => {
+                // Remove if off-screen
+                if (obstacle.x < game.camera.x - 100) {
+                    game.obstacles.splice(index, 1);
+                    game.score += 10;
+                    return;
+                }
+                
+                // Collision detection
+                if (!game.powerUpStates.shield.active &&
+                    game.player.x < obstacle.x + obstacle.width &&
+                    game.player.x + game.player.width > obstacle.x &&
+                    game.player.y < obstacle.y + obstacle.height &&
+                    game.player.y + game.player.height > obstacle.y) {
+                    
+                    game.player.health -= 20;
+                    
+                    // Create damage particles
+                    for (let i = 0; i < 10; i++) {
+                        game.particles.push(createParticle(
+                            game.player.x + game.player.width / 2,
+                            game.player.y + game.player.height / 2,
+                            '#ff4444'
+                        ));
+                    }
+                    
+                    game.obstacles.splice(index, 1);
+                    
+                    if (game.player.health <= 0) {
+                        gameOver();
+                    }
+                }
+            });
+        }
+        
+        function updatePowerUps() {
+            // Spawn power-ups
+            if (Math.random() < 0.005) {
+                game.powerUps.push(createPowerUp());
+            }
+            
+            // Update power-ups
+            game.powerUps.forEach((powerUp, index) => {
+                powerUp.animation += 0.1;
+                
+                // Remove if off-screen
+                if (powerUp.x < game.camera.x - 100) {
+                    game.powerUps.splice(index, 1);
+                    return;
+                }
+                
+                // Magnet effect
+                if (game.powerUpStates.magnet.active) {
+                    const dx = game.player.x - powerUp.x;
+                    const dy = game.player.y - powerUp.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 100) {
+                        powerUp.x += dx * 0.1;
+                        powerUp.y += dy * 0.1;
+                    }
+                }
+                
+                // Collision detection
+                if (game.player.x < powerUp.x + powerUp.width &&
+                    game.player.x + game.player.width > powerUp.x &&
+                    game.player.y < powerUp.y + powerUp.height &&
+                    game.player.y + game.player.height > powerUp.y) {
+                    
+                    activatePowerUp(powerUp.type);
+                    game.powerUps.splice(index, 1);
+                    
+                    // Create collection particles
+                    for (let i = 0; i < 15; i++) {
+                        game.particles.push(createParticle(
+                            powerUp.x + powerUp.width / 2,
+                            powerUp.y + powerUp.height / 2,
+                            '#00ffff'
+                        ));
+                    }
+                }
+            });
+            
+            // Update power-up states
+            Object.keys(game.powerUpStates).forEach(key => {
+                if (game.powerUpStates[key].active) {
+                    game.powerUpStates[key].duration--;
+                    if (game.powerUpStates[key].duration <= 0) {
+                        game.powerUpStates[key].active = false;
+                    }
+                }
+            });
+        }
+        
+        function updateCoins() {
+            // Spawn coins
+            if (Math.random() < 0.02) {
+                game.coins.push(createCoin());
+            }
+            
+            // Update coins
+            game.coins.forEach((coin, index) => {
+                coin.animation += 0.15;
+                
+                // Remove if off-screen
+                if (coin.x < game.camera.x - 100) {
+                    game.coins.splice(index, 1);
+                    return;
+                }
+                
+                // Magnet effect
+                if (game.powerUpStates.magnet.active) {
+                    const dx = game.player.x - coin.x;
+                    const dy = game.player.y - coin.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 150) {
+                        coin.x += dx * 0.15;
+                        coin.y += dy * 0.15;
+                    }
+                }
+                
+                // Collision detection
+                if (game.player.x < coin.x + coin.width &&
+                    game.player.x + game.player.width > coin.x &&
+                    game.player.y < coin.y + coin.height &&
+                    game.player.y + game.player.height > coin.y) {
+                    
+                    game.coinsCollected += coin.value;
+                    game.totalCoins++;
+                    game.score += 5;
+                    game.coins.splice(index, 1);
+                    
+                    // Create collection particles
+                    for (let i = 0; i < 8; i++) {
+                        game.particles.push(createParticle(
+                            coin.x + coin.width / 2,
+                            coin.y + coin.height / 2,
+                            '#ffff00'
+                        ));
+                    }
+                }
+            });
+        }
+        
+        function updateParticles() {
+            game.particles.forEach((particle, index) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.vy += 0.5; // gravity
+                particle.life -= 0.02;
+                
+                if (particle.life <= 0) {
+                    game.particles.splice(index, 1);
+                }
+            });
+        }
+        
+        function activatePowerUp(type) {
+            switch(type) {
+                case 'shield':
+                    game.powerUpStates.shield.active = true;
+                    game.powerUpStates.shield.duration = 300;
+                    break;
+                case 'speed':
+                    game.powerUpStates.speed.active = true;
+                    game.powerUpStates.speed.duration = 600;
+                    break;
+                case 'magnet':
+                    game.powerUpStates.magnet.active = true;
+                    game.powerUpStates.magnet.duration = 450;
+                    break;
+                case 'jump':
+                    game.powerUpStates.jump.active = true;
+                    game.powerUpStates.jump.duration = 400;
+                    break;
+                case 'health':
+                    game.player.health = Math.min(game.player.maxHealth, game.player.health + 30);
+                    break;
+            }
+        }
+        
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(0.5, '#16213e');
+            gradient.addColorStop(1, '#0f3460');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Moving background grid
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let x = -(game.camera.x % 50); x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Ground
+            ctx.fillStyle = '#2a2a3e';
+            ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+            
+            // Ground decoration
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 100);
+            ctx.lineTo(canvas.width, canvas.height - 100);
+            ctx.stroke();
+            
+            // Draw game objects relative to camera
+            ctx.save();
+            ctx.translate(-game.camera.x, 0);
+            
+            // Draw coins
+            game.coins.forEach(coin => {
+                ctx.save();
+                ctx.translate(coin.x + coin.width/2, coin.y + coin.height/2);
+                ctx.rotate(coin.animation);
+                ctx.fillStyle = '#ffff00';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(-coin.width/2, -coin.height/2, coin.width, coin.height);
+                ctx.restore();
+            });
+            
+            // Draw power-ups
+            game.powerUps.forEach(powerUp => {
+                ctx.save();
+                ctx.translate(powerUp.x + powerUp.width/2, powerUp.y + powerUp.height/2);
+                const pulse = Math.sin(powerUp.animation) * 0.2 + 1;
+                ctx.scale(pulse, pulse);
+                
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(-powerUp.width/2, -powerUp.height/2, powerUp.width, powerUp.height);
+                
+                // Power-up symbol
+                ctx.fillStyle = 'white';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const symbols = { shield: '🛡️', speed: '⚡', magnet: '🧲', jump: '🚀', health: '❤️' };
+                ctx.fillText(symbols[powerUp.type] || '?', 0, 0);
+                
+                ctx.restore();
+            });
+            
+            // Draw obstacles
+            game.obstacles.forEach(obstacle => {
+                ctx.fillStyle = obstacle.color;
+                ctx.shadowColor = obstacle.color;
+                ctx.shadowBlur = 10;
+                
+                if (obstacle.type === 'spike') {
+                    // Draw triangle spike
+                    ctx.beginPath();
+                    ctx.moveTo(obstacle.x + obstacle.width/2, obstacle.y);
+                    ctx.lineTo(obstacle.x, obstacle.y + obstacle.height);
+                    ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                }
+            });
+            
+            // Draw player
+            ctx.save();
+            ctx.translate(game.player.x + game.player.width/2, game.player.y + game.player.height/2);
+            
+            // Shield effect
+            if (game.powerUpStates.shield.active) {
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, game.player.width/2 + 10, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // Player body
+            ctx.fillStyle = game.powerUpStates.speed.active ? '#ffff00' : '#00ffff';
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.shadowBlur = 15;
+            ctx.fillRect(-game.player.width/2, -game.player.height/2, game.player.width, game.player.height);
+            
+            ctx.restore();
+            
+            // Draw particles
+            game.particles.forEach(particle => {
+                ctx.save();
+                ctx.globalAlpha = particle.life;
+                ctx.fillStyle = particle.color;
+                ctx.shadowColor = particle.color;
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+            
+            ctx.restore();
+            
+            // Update UI
+            updateUI();
+        }
+        
+        function updateUI() {
+            document.getElementById('score').textContent = Math.floor(game.score);
+            document.getElementById('distance').textContent = Math.floor(game.distance);
+            document.getElementById('speed').textContent = game.speed.toFixed(1);
+            document.getElementById('coins').textContent = game.coinsCollected;
+            
+            // Health bar
+            const healthPercent = (game.player.health / game.player.maxHealth) * 100;
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+            
+            // Power-up indicators
+            Object.keys(game.powerUpStates).forEach(key => {
+                const element = document.getElementById(key);
+                if (game.powerUpStates[key].active) {
+                    element.classList.add('active');
+                } else {
+                    element.classList.remove('active');
+                }
+            });
+        }
+        
+        function gameOver() {
+            game.gameRunning = false;
+            
+            // Show interstitial ad every 3rd game over
+            if (!window.gameOverCount) window.gameOverCount = 0;
+            window.gameOverCount++;
+            
+            if (window.gameOverCount % 3 === 0) {
+                showInterstitialAd();
+            }
+            
+            // Update best score
+            if (game.score > game.bestScore) {
+                game.bestScore = game.score;
+                localStorage.setItem('neonRunnerBest', game.bestScore.toString());
+            }
+            
+            // Save total coins
+            localStorage.setItem('neonRunnerCoins', game.totalCoins.toString());
+            
+            // Show game over screen
+            document.getElementById('finalScore').textContent = Math.floor(game.score);
+            document.getElementById('finalDistance').textContent = Math.floor(game.distance);
+            document.getElementById('finalCoins').textContent = game.coinsCollected;
+            document.getElementById('bestScore').textContent = game.bestScore;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        function showInterstitialAd() {
+            document.getElementById('interstitialAd').style.display = 'block';
+        }
+        
+        function closeInterstitialAd() {
+            document.getElementById('interstitialAd').style.display = 'none';
+        }
+        
+        function restartGame() {
+            // Reset game state
+            game.player = {
+                x: 100,
+                y: canvas.height - 150,
+                width: 40,
+                height: 40,
+                velocityY: 0,
+                onGround: false,
+                health: 100 + (game.upgrades.health * 20),
+                maxHealth: 100 + (game.upgrades.health * 20)
+            };
+            
+            game.camera = { x: 0 };
+            game.obstacles = [];
+            game.powerUps = [];
+            game.coins = [];
+            game.particles = [];
+            game.score = 0;
+            game.distance = 0;
+            game.speed = 5 + (game.upgrades.speed * 0.5);
+            game.coinsCollected = 0;
+            game.gameRunning = true;
+            game.paused = false;
+            
+            // Reset power-up states
+            Object.keys(game.powerUpStates).forEach(key => {
+                game.powerUpStates[key].active = false;
+                game.powerUpStates[key].duration = 0;
+            });
+            
+            // Hide menus
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('pauseMenu').style.display = 'none';
+            
+            // Restart game loop
+            gameLoop();
+        }
+        
+        function togglePause() {
+            game.paused = !game.paused;
+            if (game.paused) {
+                document.getElementById('pauseMenu').style.display = 'block';
+            } else {
+                document.getElementById('pauseMenu').style.display = 'none';
+            }
+        }
+        
+        function resumeGame() {
+            game.paused = false;
+            document.getElementById('pauseMenu').style.display = 'none';
+        }
+        
+        function showUpgrades() {
+            // Simple upgrade system - could be expanded
+            alert(`Upgrade System:\n\nCoins: ${game.totalCoins}\n\nUpgrades available:\n- Health Boost (Cost: 100 coins)\n- Speed Boost (Cost: 150 coins)\n- Jump Power (Cost: 200 coins)\n- Magnet Duration (Cost: 250 coins)\n\nUpgrade system can be fully implemented!`);
+        }
+        
+        function shareScore() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Neon Runner High Score!',
+                    text: `I just scored ${Math.floor(game.score)} points and traveled ${Math.floor(game.distance)}m in Neon Runner! Can you beat it?`,
+                    url: window.location.href
+                });
+            } else {
+                const text = `I just scored ${Math.floor(game.score)} points and traveled ${Math.floor(game.distance)}m in Neon Runner! Can you beat it? ${window.location.href}`;
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Score copied to clipboard!');
+                });
+            }
+        }
+        
+        function gameLoop() {
+            if (!game.gameRunning) return;
+            
+            if (!game.paused) {
+                // Update game logic
+                updatePlayer();
+                updateObstacles();
+                updatePowerUps();
+                updateCoins();
+                updateParticles();
+                
+                // Update score
+                game.score += 0.1;
+            }
+            
+            // Always draw (even when paused)
+            draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initialize game
+        function init() {
+            // Load upgrades
+            game.upgrades.health = parseInt(localStorage.getItem('upgradeHealth') || '0');
+            game.upgrades.speed = parseInt(localStorage.getItem('upgradeSpeed') || '0');
+            game.upgrades.jump = parseInt(localStorage.getItem('upgradeJump') || '0');
+            game.upgrades.magnet = parseInt(localStorage.getItem('upgradeMagnet') || '0');
+            
+            // Apply upgrades
+            game.player.health = 100 + (game.upgrades.health * 20);
+            game.player.maxHealth = game.player.health;
+            game.speed = 5 + (game.upgrades.speed * 0.5);
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        // Prevent scrolling on mobile
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Start the game
+        init();
+    </script>
+</body>
+</html>
