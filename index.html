@@ -31,7 +31,6 @@
     .upgrades-panel { max-height: 300px; overflow-y: auto; margin: 20px 0; }
     .upgrade-item { background: rgba(255, 255, 255, 0.1); margin: 10px 0; padding: 15px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.2); }
     .ad-banner { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 320px; height: 50px; background: rgba(0, 0, 0, 0.8); border: 2px dashed #00ffff; color: #00ffff; display: flex; align-items: center; justify-content: center; font-size: 12px; }
-    /* Simple interstitial modal */
     .interstitial { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 30; }
     .interstitial .box { background: #111; border: 2px solid #00ffff; color: #00ffff; padding: 24px; border-radius: 12px; text-align: center; width: 320px; }
     .interstitial button { margin-top: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid #00ffff; background: transparent; color: #00ffff; cursor: pointer; }
@@ -44,7 +43,6 @@
 </head>
 <body>
   <div id="gameContainer">
-    <!-- Navigation pour AdSense -->
     <nav style="position: absolute; top: 10px; right: 10px; z-index: 100;">
       <a href="about.html" style="color: #00ffff; text-decoration: none; margin: 0 10px; background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 5px; font-size: 14px;">À Propos</a>
       <a href="contact.html" style="color: #00ffff; text-decoration: none; margin: 0 10px; background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 5px; font-size: 14px;">Contact</a>
@@ -62,9 +60,7 @@
         <div>Coins: <span id="coins">0</span></div>
       </div>
 
-      <div class="health-bar">
-        <div class="health-fill" id="healthFill"></div>
-      </div>
+      <div class="health-bar"><div class="health-fill" id="healthFill"></div></div>
 
       <div class="power-ups" id="powerUps">
         <div class="power-up-icon" id="shield">🛡️</div>
@@ -103,7 +99,6 @@
 
     <div class="ad-banner">[Mobile Banner Ad - 320x50]</div>
 
-    <!-- Interstitial placeholder so showInterstitialAd() has a target -->
     <div class="interstitial" id="interstitialAd">
       <div class="box">
         <div style="font-weight:bold; margin-bottom:8px;">Interstitial</div>
@@ -117,80 +112,61 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // ===== Ground constants (single source of truth) =====
-    const GROUND_HEIGHT = 100; // visual ground thickness
-    const groundTop = () => canvas.height - GROUND_HEIGHT; // y (top surface of ground)
+    // ===== Helpers for CSS vs device pixels =====
+    const DPR = () => (window.devicePixelRatio || 1);
+    const viewW = () => canvas.width / DPR();
+    const viewH = () => canvas.height / DPR();
 
-    // Responsive canvas
+    // ===== Ground constants =====
+    const GROUND_HEIGHT = 100; // visual thickness
+    const groundTop = () => viewH() - GROUND_HEIGHT; // top surface in CSS pixels
+
+    // Responsive + HiDPI canvas
     function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const dpr = DPR();
+      // set CSS size
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      // set backing store size
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      // scale so 1 unit = 1 CSS pixel
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Snap player back to the ground surface if below it after resize
+      // Snap player back to ground if needed
       const groundYForPlayer = groundTop() - game.player.height;
       if (game.player.y > groundYForPlayer) {
-        game.player.y = groundYForPlayer;
+        game.player.y = Math.round(groundYForPlayer);
         game.player.velocityY = 0;
         game.player.onGround = true;
       }
-
-      // Re-seat obstacles on the ground surface after height changes
-      game.obstacles.forEach(o => { o.y = groundTop() - o.height; });
+      // Re-seat obstacles on the surface
+      game.obstacles.forEach(o => { o.y = Math.round(groundTop() - o.height); });
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
     let game = {
-      player: {
-        x: 100,
-        y: 0, // will be set just after init based on groundTop
-        width: 40,
-        height: 40,
-        velocityY: 0,
-        onGround: false,
-        health: 100,
-        maxHealth: 100
-      },
+      player: { x: 100, y: 0, width: 40, height: 40, velocityY: 0, onGround: false, health: 100, maxHealth: 100 },
       camera: { x: 0 },
-      obstacles: [],
-      powerUps: [],
-      coins: [],
-      particles: [],
-      score: 0,
-      distance: 0,
-      speed: 5,
-      coinsCollected: 0,
+      obstacles: [], powerUps: [], coins: [], particles: [],
+      score: 0, distance: 0, speed: 5, coinsCollected: 0,
       totalCoins: parseInt(localStorage.getItem('neonRunnerCoins') || '0'),
       bestScore: parseInt(localStorage.getItem('neonRunnerBest') || '0'),
-      gameRunning: true,
-      paused: false,
-      keys: {},
-      powerUpStates: {
-        shield: { active: false, duration: 0 },
-        speed: { active: false, duration: 0 },
-        magnet: { active: false, duration: 0 },
-        jump: { active: false, duration: 0 }
-      },
-      upgrades: {
-        health: parseInt(localStorage.getItem('upgradeHealth') || '0'),
-        speed: parseInt(localStorage.getItem('upgradeSpeed') || '0'),
-        jump: parseInt(localStorage.getItem('upgradeJump') || '0'),
-        magnet: parseInt(localStorage.getItem('upgradeMagnet') || '0')
-      }
+      gameRunning: true, paused: false, keys: {},
+      powerUpStates: { shield: { active: false, duration: 0 }, speed: { active: false, duration: 0 }, magnet: { active: false, duration: 0 }, jump: { active: false, duration: 0 } },
+      upgrades: { health: parseInt(localStorage.getItem('upgradeHealth') || '0'), speed: parseInt(localStorage.getItem('upgradeSpeed') || '0'), jump: parseInt(localStorage.getItem('upgradeJump') || '0'), magnet: parseInt(localStorage.getItem('upgradeMagnet') || '0') }
     };
 
-    // Input handling
+    // Controls
     const controls = { left: false, right: false, jump: false };
-
     function addControlEvents(elementId, controlKey) {
       const element = document.getElementById(elementId);
-      // Touch
-      element.addEventListener('touchstart', (e) => { e.preventDefault(); controls[controlKey] = true; });
-      element.addEventListener('touchend',   (e) => { e.preventDefault(); controls[controlKey] = false; });
-      // Mouse
-      element.addEventListener('mousedown',  (e) => { e.preventDefault(); controls[controlKey] = true; });
-      element.addEventListener('mouseup',    (e) => { e.preventDefault(); controls[controlKey] = false; });
-      element.addEventListener('mouseleave', (e) => { e.preventDefault(); controls[controlKey] = false; });
+      element.addEventListener('touchstart', e => { e.preventDefault(); controls[controlKey] = true; });
+      element.addEventListener('touchend',   e => { e.preventDefault(); controls[controlKey] = false; });
+      element.addEventListener('mousedown',  e => { e.preventDefault(); controls[controlKey] = true; });
+      element.addEventListener('mouseup',    e => { e.preventDefault(); controls[controlKey] = false; });
+      element.addEventListener('mouseleave', e => { e.preventDefault(); controls[controlKey] = false; });
     }
     addControlEvents('leftBtn', 'left');
     addControlEvents('rightBtn', 'right');
@@ -198,7 +174,6 @@
 
     document.getElementById('pauseBtn').addEventListener('click', togglePause);
 
-    // Keyboard controls
     document.addEventListener('keydown', (e) => {
       switch (e.code) {
         case 'ArrowLeft': case 'KeyA': controls.left = true; break;
@@ -220,11 +195,11 @@
       const type = types[Math.floor(Math.random() * types.length)];
       const height = 40 + Math.random() * 40;
       return {
-        x: game.camera.x + canvas.width + Math.random() * 200,
-        y: groundTop() - height, // sit on the ground surface
+        x: game.camera.x + viewW() + Math.random() * 200,
+        y: Math.round(groundTop() - height),
         width: 40,
-        height: height,
-        type: type,
+        height,
+        type,
         color: type === 'spike' ? '#ff4444' : type === 'block' ? '#ff8800' : '#ff0080'
       };
     }
@@ -232,39 +207,20 @@
     function createPowerUp() {
       const types = ['shield', 'speed', 'magnet', 'jump', 'health'];
       const type = types[Math.floor(Math.random() * types.length)];
-      return {
-        x: game.camera.x + canvas.width + Math.random() * 300,
-        y: groundTop() - 100 - Math.random() * 100, // float above ground
-        width: 30,
-        height: 30,
-        type: type,
-        collected: false,
-        animation: 0
-      };
+      return { x: game.camera.x + viewW() + Math.random() * 300, y: groundTop() - 100 - Math.random() * 100, width: 30, height: 30, type, collected: false, animation: 0 };
     }
 
     function createCoin() {
-      return {
-        x: game.camera.x + canvas.width + Math.random() * 200,
-        y: groundTop() - 50 - Math.random() * 150,
-        width: 20,
-        height: 20,
-        collected: false,
-        animation: 0,
-        value: 1
-      };
+      return { x: game.camera.x + viewW() + Math.random() * 200, y: groundTop() - 50 - Math.random() * 150, width: 20, height: 20, collected: false, animation: 0, value: 1 };
     }
 
-    function createParticle(x, y, color) {
-      return { x, y, vx: (Math.random() - 0.5) * 10, vy: Math.random() * -10 - 5, life: 1.0, color, size: Math.random() * 8 + 2 };
-    }
+    function createParticle(x, y, color) { return { x, y, vx: (Math.random() - 0.5) * 10, vy: Math.random() * -10 - 5, life: 1.0, color, size: Math.random() * 8 + 2 }; }
 
     function updatePlayer() {
-      // Horizontal movement
+      const W = viewW();
       if (controls.left && game.player.x > game.camera.x + 20) game.player.x -= 8;
-      if (controls.right && game.player.x < game.camera.x + canvas.width - game.player.width - 20) game.player.x += 8;
+      if (controls.right && game.player.x < game.camera.x + W - game.player.width - 20) game.player.x += 8;
 
-      // Jump
       if (controls.jump && game.player.onGround) {
         const jumpPower = 22 + (game.upgrades.jump * 3);
         game.player.velocityY = -jumpPower;
@@ -272,45 +228,33 @@
         for (let i = 0; i < 5; i++) game.particles.push(createParticle(game.player.x + game.player.width / 2, game.player.y + game.player.height, '#00ffff'));
       }
 
-      // Gravity
-      game.player.velocityY += 1.2;
+      game.player.velocityY += 1.2; // gravity
       game.player.y += game.player.velocityY;
 
-      // Ground collision using groundTop()
       const groundYForPlayer = groundTop() - game.player.height;
-      if (game.player.y >= groundYForPlayer) {
-        game.player.y = groundYForPlayer;
-        game.player.velocityY = 0;
-        game.player.onGround = true;
-      } else {
-        game.player.onGround = false;
-      }
+      if (game.player.y >= groundYForPlayer) { game.player.y = Math.round(groundYForPlayer); game.player.velocityY = 0; game.player.onGround = true; }
+      else { game.player.onGround = false; }
 
-      // Camera follows player smoothly
       const targetCameraX = game.player.x - 200;
       game.camera.x += (targetCameraX - game.camera.x) * 0.1;
 
-      // Auto-forward
       const currentSpeed = game.speed + (game.powerUpStates.speed.active ? 3 : 0);
       game.player.x += currentSpeed;
       game.distance += currentSpeed / 10;
 
-      // Increase speed over time
       if (Math.floor(game.distance) % 100 === 0 && game.distance > 0) game.speed += 0.05;
     }
 
     function updateObstacles() {
       if (Math.random() < 0.01 + (game.speed / 1000)) game.obstacles.push(createObstacle());
-      game.obstacles.forEach((obstacle, index) => {
-        if (obstacle.x < game.camera.x - 100) { game.obstacles.splice(index, 1); game.score += 10; return; }
+      game.obstacles.forEach((o, i) => {
+        if (o.x < game.camera.x - 100) { game.obstacles.splice(i, 1); game.score += 10; return; }
         if (!game.powerUpStates.shield.active &&
-            game.player.x < obstacle.x + obstacle.width &&
-            game.player.x + game.player.width > obstacle.x &&
-            game.player.y < obstacle.y + obstacle.height &&
-            game.player.y + game.player.height > obstacle.y) {
+            game.player.x < o.x + o.width && game.player.x + game.player.width > o.x &&
+            game.player.y < o.y + o.height && game.player.y + game.player.height > o.y) {
           game.player.health -= 20;
-          for (let i = 0; i < 10; i++) game.particles.push(createParticle(game.player.x + game.player.width / 2, game.player.y + game.player.height / 2, '#ff4444'));
-          game.obstacles.splice(index, 1);
+          for (let k = 0; k < 10; k++) game.particles.push(createParticle(game.player.x + game.player.width / 2, game.player.y + game.player.height / 2, '#ff4444'));
+          game.obstacles.splice(i, 1);
           if (game.player.health <= 0) gameOver();
         }
       });
@@ -318,20 +262,17 @@
 
     function updatePowerUps() {
       if (Math.random() < 0.005) game.powerUps.push(createPowerUp());
-      game.powerUps.forEach((powerUp, index) => {
-        powerUp.animation += 0.1;
-        if (powerUp.x < game.camera.x - 100) { game.powerUps.splice(index, 1); return; }
+      game.powerUps.forEach((p, i) => {
+        p.animation += 0.1;
+        if (p.x < game.camera.x - 100) { game.powerUps.splice(i, 1); return; }
         if (game.powerUpStates.magnet.active) {
-          const dx = game.player.x - powerUp.x, dy = game.player.y - powerUp.y; const dist = Math.hypot(dx, dy);
-          if (dist < 100) { powerUp.x += dx * 0.1; powerUp.y += dy * 0.1; }
+          const dx = game.player.x - p.x, dy = game.player.y - p.y; const dist = Math.hypot(dx, dy);
+          if (dist < 100) { p.x += dx * 0.1; p.y += dy * 0.1; }
         }
-        if (game.player.x < powerUp.x + powerUp.width &&
-            game.player.x + game.player.width > powerUp.x &&
-            game.player.y < powerUp.y + powerUp.height &&
-            game.player.y + game.player.height > powerUp.y) {
-          activatePowerUp(powerUp.type);
-          game.powerUps.splice(index, 1);
-          for (let i = 0; i < 15; i++) game.particles.push(createParticle(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2, '#00ffff'));
+        if (game.player.x < p.x + p.width && game.player.x + game.player.width > p.x && game.player.y < p.y + p.height && game.player.y + game.player.height > p.y) {
+          activatePowerUp(p.type);
+          game.powerUps.splice(i, 1);
+          for (let k = 0; k < 15; k++) game.particles.push(createParticle(p.x + p.width / 2, p.y + p.height / 2, '#00ffff'));
         }
       });
       Object.keys(game.powerUpStates).forEach(key => { if (game.powerUpStates[key].active) { game.powerUpStates[key].duration--; if (game.powerUpStates[key].duration <= 0) game.powerUpStates[key].active = false; } });
@@ -339,26 +280,21 @@
 
     function updateCoins() {
       if (Math.random() < 0.02) game.coins.push(createCoin());
-      game.coins.forEach((coin, index) => {
-        coin.animation += 0.15;
-        if (coin.x < game.camera.x - 100) { game.coins.splice(index, 1); return; }
+      game.coins.forEach((c, i) => {
+        c.animation += 0.15;
+        if (c.x < game.camera.x - 100) { game.coins.splice(i, 1); return; }
         if (game.powerUpStates.magnet.active) {
-          const dx = game.player.x - coin.x, dy = game.player.y - coin.y; const dist = Math.hypot(dx, dy);
-          if (dist < 150) { coin.x += dx * 0.15; coin.y += dy * 0.15; }
+          const dx = game.player.x - c.x, dy = game.player.y - c.y; const dist = Math.hypot(dx, dy);
+          if (dist < 150) { c.x += dx * 0.15; c.y += dy * 0.15; }
         }
-        if (game.player.x < coin.x + coin.width &&
-            game.player.x + game.player.width > coin.x &&
-            game.player.y < coin.y + coin.height &&
-            game.player.y + game.player.height > coin.y) {
-          game.coinsCollected += coin.value; game.totalCoins++; game.score += 5; game.coins.splice(index, 1);
-          for (let i = 0; i < 8; i++) game.particles.push(createParticle(coin.x + coin.width / 2, coin.y + coin.height / 2, '#ffff00'));
+        if (game.player.x < c.x + c.width && game.player.x + game.player.width > c.x && game.player.y < c.y + c.height && game.player.y + game.player.height > c.y) {
+          game.coinsCollected += c.value; game.totalCoins++; game.score += 5; game.coins.splice(i, 1);
+          for (let k = 0; k < 8; k++) game.particles.push(createParticle(c.x + c.width / 2, c.y + c.height / 2, '#ffff00'));
         }
       });
     }
 
-    function updateParticles() {
-      game.particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= 0.02; if (p.life <= 0) game.particles.splice(i, 1); });
-    }
+    function updateParticles() { game.particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= 0.02; if (p.life <= 0) game.particles.splice(i, 1); }); }
 
     function activatePowerUp(type) {
       switch (type) {
@@ -371,164 +307,15 @@
     }
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const W = viewW();
+      const H = viewH();
+
+      ctx.clearRect(0, 0, W, H);
 
       // Background gradient
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      const gradient = ctx.createLinearGradient(0, 0, 0, H);
       gradient.addColorStop(0, '#1a1a2e'); gradient.addColorStop(0.5, '#16213e'); gradient.addColorStop(1, '#0f3460');
-      ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = gradient; ctx.fillRect(0, 0, W, H);
 
-      // Moving background grid
-      ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)'; ctx.lineWidth = 1;
-      for (let x = -(game.camera.x % 50); x < canvas.width; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
-
-      // Ground using groundTop()
-      ctx.fillStyle = '#2a2a3e';
-      ctx.fillRect(0, groundTop(), canvas.width, GROUND_HEIGHT);
-      ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, groundTop()); ctx.lineTo(canvas.width, groundTop()); ctx.stroke();
-
-      // World relative to camera
-      ctx.save(); ctx.translate(-game.camera.x, 0);
-
-      // Coins
-      game.coins.forEach(coin => { ctx.save(); ctx.translate(coin.x + coin.width/2, coin.y + coin.height/2); ctx.rotate(coin.animation); ctx.fillStyle = '#ffff00'; ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 10; ctx.fillRect(-coin.width/2, -coin.height/2, coin.width, coin.height); ctx.restore(); });
-
-      // Power-ups
-      game.powerUps.forEach(pu => { ctx.save(); ctx.translate(pu.x + pu.width/2, pu.y + pu.height/2); const pulse = Math.sin(pu.animation) * 0.2 + 1; ctx.scale(pulse, pulse); ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15; ctx.fillRect(-pu.width/2, -pu.height/2, pu.width, pu.height); ctx.fillStyle = 'white'; ctx.font = '16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const symbols = { shield: '🛡️', speed: '⚡', magnet: '🧲', jump: '🚀', health: '❤️' }; ctx.fillText(symbols[pu.type] || '?', 0, 0); ctx.restore(); });
-
-      // Obstacles
-      game.obstacles.forEach(ob => { ctx.fillStyle = ob.color; ctx.shadowColor = ob.color; ctx.shadowBlur = 10; if (ob.type === 'spike') { ctx.beginPath(); ctx.moveTo(ob.x + ob.width/2, ob.y); ctx.lineTo(ob.x, ob.y + ob.height); ctx.lineTo(ob.x + ob.width, ob.y + ob.height); ctx.closePath(); ctx.fill(); } else { ctx.fillRect(ob.x, ob.y, ob.width, ob.height); } });
-
-      // Player
-      ctx.save(); ctx.translate(game.player.x + game.player.width/2, game.player.y + game.player.height/2);
-      if (game.powerUpStates.shield.active) { ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, game.player.width/2 + 10, 0, Math.PI * 2); ctx.stroke(); }
-      ctx.fillStyle = game.powerUpStates.speed.active ? '#ffff00' : '#00ffff'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 15; ctx.fillRect(-game.player.width/2, -game.player.height/2, game.player.width, game.player.height);
-      ctx.restore();
-
-      // Particles
-      game.particles.forEach(p => { ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 5; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
-
-      ctx.restore();
-
-      updateUI();
-    }
-
-    function updateUI() {
-      document.getElementById('score').textContent = Math.floor(game.score);
-      document.getElementById('distance').textContent = Math.floor(game.distance);
-      document.getElementById('speed').textContent = game.speed.toFixed(1);
-      document.getElementById('coins').textContent = game.coinsCollected;
-
-      const healthPercent = (game.player.health / game.player.maxHealth) * 100;
-      document.getElementById('healthFill').style.width = healthPercent + '%';
-
-      // Power-up indicators (note: speed icon id changed to speedPU to avoid id clash with speed display)
-      const indicators = { shield: 'shield', speed: 'speedPU', magnet: 'magnet', jump: 'jump' };
-      Object.keys(game.powerUpStates).forEach(key => {
-        const el = document.getElementById(indicators[key]);
-        if (!el) return;
-        if (game.powerUpStates[key].active) el.classList.add('active'); else el.classList.remove('active');
-      });
-    }
-
-    function gameOver() {
-      game.gameRunning = false;
-      if (!window.gameOverCount) window.gameOverCount = 0; window.gameOverCount++;
-      if (window.gameOverCount % 3 === 0) showInterstitialAd();
-      if (game.score > game.bestScore) { game.bestScore = game.score; localStorage.setItem('neonRunnerBest', game.bestScore.toString()); }
-      localStorage.setItem('neonRunnerCoins', game.totalCoins.toString());
-      document.getElementById('finalScore').textContent = Math.floor(game.score);
-      document.getElementById('finalDistance').textContent = Math.floor(game.distance);
-      document.getElementById('finalCoins').textContent = game.coinsCollected;
-      document.getElementById('bestScore').textContent = game.bestScore;
-      document.getElementById('gameOver').style.display = 'block';
-    }
-
-    function showInterstitialAd() { document.getElementById('interstitialAd').style.display = 'flex'; }
-    function closeInterstitialAd() { document.getElementById('interstitialAd').style.display = 'none'; }
-
-    function restartGame() {
-      game.player = {
-        x: 100,
-        y: 0,
-        width: 40,
-        height: 40,
-        velocityY: 0,
-        onGround: false,
-        health: 100 + (game.upgrades.health * 20),
-        maxHealth: 100 + (game.upgrades.health * 20)
-      };
-      game.player.y = groundTop() - game.player.height;
-
-      game.camera = { x: 0 };
-      game.obstacles = [];
-      game.powerUps = [];
-      game.coins = [];
-      game.particles = [];
-      game.score = 0;
-      game.distance = 0;
-      game.speed = 5 + (game.upgrades.speed * 0.5);
-      game.coinsCollected = 0;
-      game.gameRunning = true;
-      game.paused = false;
-
-      Object.keys(game.powerUpStates).forEach(key => { game.powerUpStates[key].active = false; game.powerUpStates[key].duration = 0; });
-
-      document.getElementById('gameOver').style.display = 'none';
-      document.getElementById('pauseMenu').style.display = 'none';
-
-      gameLoop();
-    }
-
-    function togglePause() { game.paused = !game.paused; document.getElementById('pauseMenu').style.display = game.paused ? 'block' : 'none'; }
-    function resumeGame() { game.paused = false; document.getElementById('pauseMenu').style.display = 'none'; }
-
-    function showUpgrades() {
-      alert(`Upgrade System:\n\nCoins: ${game.totalCoins}\n\nUpgrades available:\n- Health Boost (Cost: 100 coins)\n- Speed Boost (Cost: 150 coins)\n- Jump Power (Cost: 200 coins)\n- Magnet Duration (Cost: 250 coins)\n\nUpgrade system can be fully implemented!`);
-    }
-
-    function shareScore() {
-      if (navigator.share) {
-        navigator.share({ title: 'Neon Runner High Score!', text: `I just scored ${Math.floor(game.score)} points and traveled ${Math.floor(game.distance)}m in Neon Runner! Can you beat it?`, url: window.location.href });
-      } else {
-        const text = `I just scored ${Math.floor(game.score)} points and traveled ${Math.floor(game.distance)}m in Neon Runner! Can you beat it? ${window.location.href}`;
-        navigator.clipboard.writeText(text).then(() => { alert('Score copied to clipboard!'); });
-      }
-    }
-
-    function gameLoop() {
-      if (!game.gameRunning) return;
-      if (!game.paused) {
-        updatePlayer(); updateObstacles(); updatePowerUps(); updateCoins(); updateParticles();
-        game.score += 0.1;
-      }
-      draw();
-      requestAnimationFrame(gameLoop);
-    }
-
-    function init() {
-      // Load upgrades
-      game.upgrades.health = parseInt(localStorage.getItem('upgradeHealth') || '0');
-      game.upgrades.speed  = parseInt(localStorage.getItem('upgradeSpeed') || '0');
-      game.upgrades.jump   = parseInt(localStorage.getItem('upgradeJump') || '0');
-      game.upgrades.magnet = parseInt(localStorage.getItem('upgradeMagnet') || '0');
-
-      // Apply upgrades
-      game.player.health = 100 + (game.upgrades.health * 20);
-      game.player.maxHealth = game.player.health;
-      game.speed = 5 + (game.upgrades.speed * 0.5);
-
-      // Place player on ground using the single groundTop reference
-      game.player.y = groundTop() - game.player.height;
-
-      gameLoop();
-    }
-
-    // Prevent scrolling on mobile
-    document.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
-
-    // Start the game
-    init();
-  </script>
-</body>
-</html>
+      // Moving grid
+      ctx.s
